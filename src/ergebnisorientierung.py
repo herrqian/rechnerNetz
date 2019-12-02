@@ -4,10 +4,11 @@ import heapq
 class Ergebnislist:
 
     def __init__(self, time, eventnumber):
-        self.heapq = [(0, 'B', KundIn('A1')), (1, 'B', KundIn('B1')), (61, 'B', KundIn('B2')), (121, 'B', KundIn('B3')),
-                      (181, 'B', KundIn('B4')), (200, 'B', KundIn('A2'))]
+        self.heapq = []
         self.time = time
         self.number = eventnumber
+        self.start_generator(0,200, self.time,"A")
+        self.start_generator(1,60,self.time,"B")
         self.bäcker = Station('Bäcker', 10)
         self.wursttheke = Station('Metzger', 30)
         self.käsetheke = Station('Käse', 60)
@@ -19,21 +20,24 @@ class Ergebnislist:
     def push(self, event):
         heapq.heappush(self.heapq, event)
 
+    def start_generator(self, st,dt, T,typ):
+        t=st
+        customer_id = 1
+        while t<T:
+            self.push((t, 0, 'B', KundIn(typ + str(customer_id))))
+            t+=dt
+            customer_id += 1
+
     def start(self):
         mtime = 0
         eventnumber = 0
-        a_id = 3
-        b_id = 5
         while self.heapq or mtime >= self.time or eventnumber >= self.number:
-            if mtime > 200:
-                if mtime % 200 == 0:
-                    self.push((mtime, 'B', KundIn('A' + str(a_id))))
-                if (mtime - 1) % 60 == 0:
-                    self.push((mtime, 'B', KundIn('B' + str(b_id))))
-            time, event, customer = self.pop()
+            time, prio, event, customer = self.pop()
             if event == 'B':
-                self.push((time + customer.tasks[0][0], 'A0', customer))
+                self.push((time + customer.tasks[0][0], 2, 'A0', customer))
             elif event[0] == 'A':
+                if customer.name == 'A2' and time ==210:
+                    print('hhhhh')
                 position = int(event[1])
                 if customer.name[0] == 'A':
                     if position == 0:
@@ -51,9 +55,9 @@ class Ergebnislist:
                         self.customer_arrive(time, position, customer, self.kasse)
                     else:
                         self.customer_arrive(time, position, customer, self.bäcker)
-            elif event[0] == 'L':
+            elif event[0] == 'V':
                 position = int(event[1])
-                if customer.name == 'T1':
+                if customer.name[0] == 'A':
                     if position == 0:
                         self.customer_leave(time, position, customer, self.bäcker)
                     elif position == 1:
@@ -69,12 +73,11 @@ class Ergebnislist:
                         self.customer_leave(time, position, customer, self.kasse)
                     else:
                         self.customer_leave(time, position, customer, self.bäcker)
-            mtime += 1
 
     def customer_arrive(self, time, position, customer, station):
         if len(station.queue) >= customer.tasks[position][1]:
             if position < len(customer.tasks) - 1:
-                self.push((time + customer.tasks[position + 1][0], 'A' + str(position + 1), customer))
+                self.push((time + customer.tasks[position + 1][0], 2, 'A' + str(position + 1), customer))
             customer.action(time, 'dropped', station)
         else:
             station.action(time, 'adding', customer)
@@ -84,7 +87,7 @@ class Ergebnislist:
                 station.action(time, 'serving', customer)
                 station.queue.pop(0)
                 customer.action(time, 'Queueing', station)
-                self.push((time + station.worktime * customer.tasks[position][2], 'L' + str(position), customer))
+                self.push((time + station.worktime * customer.tasks[position][2], 1, 'V' + str(position), customer))
             else:
                 customer.action(time, 'Queueing', station)
 
@@ -92,14 +95,14 @@ class Ergebnislist:
         customer.action(time, 'Finished', station)
         station.action(time, 'Finished', customer)
         if position < len(customer.tasks) - 1:
-            self.push((time + customer.tasks[position + 1][0], 'A' + str(position + 1), customer))
-            if station.queue:
-                next_customer, n_position = station.queue.pop(0)
-                station.action(time, 'serving', next_customer)
-                self.push((time + next_customer.tasks[n_position][2] * station.worktime, 'V' + str(n_position),
+            self.push((time + customer.tasks[position + 1][0], 2, 'A' + str(position + 1), customer))
+        if station.queue:
+            next_customer, n_position = station.queue.pop(0)
+            station.action(time, 'serving', next_customer)
+            self.push((time + next_customer.tasks[n_position][2] * station.worktime, 1, 'V' + str(n_position),
                            next_customer))
-            else:
-                station.is_working = False
+        else:
+            station.is_working = False
 
 
 class Station:
@@ -134,7 +137,19 @@ class KundIn:
             f.write(text)
             f.flush()
 
+    def __lt__(self, other):
+        return self.name < other.name
+
+    def __gt__(self, other):
+        return other.__lt__(self)
+
+    def __eq__(self, other):
+        return self.name == other.name
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
 
 if __name__ == "__main__":
-    my_events = Ergebnislist(10000, 100000)
+    my_events = Ergebnislist(2000,100000)
     my_events.start()
