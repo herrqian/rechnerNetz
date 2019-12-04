@@ -53,4 +53,3 @@ print('udp:')
 for i in range(51):
     if i > 0:
         t = threading.Thread(target=port_scanner2(i))
-
